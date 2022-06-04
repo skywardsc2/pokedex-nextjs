@@ -1,6 +1,6 @@
-import { ThemeProvider } from '@mui/material/styles';
+import { ThemeProvider } from '@mui/material/styles'
 // import { ThemeProvider as Emotion10ThemeProvider } from 'emotion-theming';
-import theme from '../src/themes/theme';
+import theme from '../src/themes/theme'
 
 const withThemeProvider = (Story) => {
   return (
@@ -9,42 +9,42 @@ const withThemeProvider = (Story) => {
       <Story />
     </ThemeProvider>
     // </Emotion10ThemeProvider>
-  );
-};
+  )
+}
 
-export const decorators = [withThemeProvider];
+export const decorators = [withThemeProvider]
 
 const BREAKPOINTS_INT = {
   xs: 375,
   sm: 600,
   md: 900,
   lg: 1200,
-  xl: 1536,
-};
+  xl: 1536
+}
 
 const customViewports = Object.fromEntries(
   Object.entries(BREAKPOINTS_INT).map(([key, val], idx) => {
-    console.log(val);
+    console.log(val)
     return [
       key,
       {
         name: key,
         styles: {
           width: `${val}px`,
-          height: `${(idx + 5) * 10}vh`,
-        },
-      },
-    ];
+          height: `${(idx + 5) * 10}vh`
+        }
+      }
+    ]
   })
-);
+)
 
 export const parameters = {
   actions: { argTypesRegex: '^on[A-Z].*' },
   controls: {
     matchers: {
       color: /(background|color)$/i,
-      date: /Date$/,
-    },
+      date: /Date$/
+    }
   },
-  viewports: { viewports: customViewports },
-};
+  viewports: { viewports: customViewports }
+}
