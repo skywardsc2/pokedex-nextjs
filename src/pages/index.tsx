@@ -4,9 +4,11 @@ import Typography from '@mui/material/Typography'
 import type { NextPage } from 'next'
 import Pokedex, { Pokemon } from 'pokedex-promise-v2'
 import * as React from 'react'
-import { useQuery } from 'react-query'
+import InfiniteScroll from 'react-infinite-scroll-component'
+import { useInfiniteQuery } from 'react-query'
 
 const pokedex = new Pokedex()
+const POKEMONS_PER_PAGE = 20
 
 type PokemonComponentProps = { pokemon?: Pokemon } & React.ComponentPropsWithRef<'div'>
 
@@ -39,53 +41,35 @@ const PokemonCard: React.FC<PokemonComponentProps> = ({ pokemon, ...restProps })
   )
 }
 
-type WithPokemonDataProps = {
-  pokemonIdOrName: string | number | undefined
-  Component: React.FC<PokemonComponentProps>
-  props?: PokemonComponentProps
-}
+const Home: NextPage = () => {
+  const { data, isLoading, isError, error, fetchNextPage, hasNextPage } = useInfiniteQuery(
+    'infinite-get-all-pokemons',
+    async ({ pageParam = 0 }) => {
+      const pokemonsPage = await pokedex.getPokemonsList({
+        limit: POKEMONS_PER_PAGE,
+        offset: pageParam * POKEMONS_PER_PAGE
+      })
+      const pokemonsList = pokemonsPage.results
 
-const WithPokemonData: React.FC<WithPokemonDataProps> = ({ pokemonIdOrName, Component, props }) => {
-  let {
-    data: pokemon,
-    isLoading,
-    isIdle,
-    isError,
-    error
-  } = useQuery(
-    ['get-pokemon-by-name', pokemonIdOrName],
-    async () => {
-      return pokedex.getPokemonByName(pokemonIdOrName!)
+      async function getPokemonDataList(
+        pokemonsList: Pokedex.NamedAPIResource[],
+        pokemonsPage: Pokedex.NamedAPIResourceList
+      ) {
+        const pokemonDataList = await Promise.all(
+          pokemonsList.map(async ({ name }) => pokedex.getPokemonByName(name))
+        )
+        return { pokemonDataList, pokemonsPage }
+      }
+      return await getPokemonDataList(pokemonsList, pokemonsPage)
     },
     {
-      enabled: !!pokemonIdOrName
+      getNextPageParam: (lastPage, pages) => {
+        if (lastPage.pokemonsPage.next) {
+          return pages.length + 1
+        }
+      }
     }
   )
-
-  if (Array.isArray(pokemon)) {
-    pokemon = pokemon[0]
-  }
-
-  if (isLoading || isIdle) {
-    return <Typography>Loading...</Typography>
-  }
-
-  if (isError) {
-    return <Typography>{`Error: ${error}`}</Typography>
-  }
-
-  return <Component pokemon={pokemon} {...props} />
-}
-
-const Home: NextPage = () => {
-  const {
-    data: pokemons,
-    isLoading,
-    isError,
-    error
-  } = useQuery('get-all-pokemons', async () => {
-    return pokedex.getPokemonsList({ limit: 8 })
-  })
 
   if (isLoading) {
     return <Typography>Loading...</Typography>
@@ -97,14 +81,33 @@ const Home: NextPage = () => {
 
   return (
     <Container>
-      <Grid container py={4} columns={{ xs: 1, sm: 3 }} spacing={1}>
-        {pokemons &&
-          pokemons.results.map((pokemon) => (
-            <Grid item xs={1} sm={1} textAlign='center' key={pokemon.name}>
-              <WithPokemonData pokemonIdOrName={pokemon.name} Component={PokemonCard} />
-            </Grid>
-          ))}
-      </Grid>
+      <InfiniteScroll
+        dataLength={(data?.pages.length || 0) * POKEMONS_PER_PAGE}
+        next={fetchNextPage}
+        hasMore={!!hasNextPage}
+        loader={<Typography variant='h4'>Loading...</Typography>}
+        height={800}
+        style={{
+          width: '100%'
+        }}
+      >
+        <Grid container py={4} columns={{ xs: 1, sm: 3 }} spacing={1}>
+          {data?.pages.map(({ pokemonDataList }) => {
+            return pokemonDataList.map((pokemonData) => {
+              let pokemon
+
+              if (Array.isArray(pokemonData)) pokemon = pokemonData[0]
+              else pokemon = pokemonData
+
+              return (
+                <Grid item xs={1} sm={1} textAlign='center' key={pokemon?.name}>
+                  <PokemonCard pokemon={pokemon} />
+                </Grid>
+              )
+            })
+          })}
+        </Grid>
+      </InfiniteScroll>
     </Container>
   )
 }
