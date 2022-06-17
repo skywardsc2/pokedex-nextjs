@@ -1,83 +1,32 @@
-import { Box, Card, Chip, Grid, styled } from '@mui/material'
+import {
+  Box,
+  Checkbox,
+  Grid,
+  ListItemText,
+  MenuItem,
+  SelectChangeEvent,
+  styled
+} from '@mui/material'
 import Container from '@mui/material/Container'
 import Typography from '@mui/material/Typography'
-import * as React from 'react'
-
 import type { GetStaticProps, NextPage } from 'next'
-import Image from 'next/image'
-
-import Pokedex, { NamedAPIResourceList, Pokemon } from 'pokedex-promise-v2'
+import Pokedex from 'pokedex-promise-v2'
+import * as React from 'react'
 import InfiniteScroll from 'react-infinite-scroll-component'
 import { useInfiniteQuery } from 'react-query'
+import { MultiSelectFilter } from 'src/components/MultiSelectFilter/MultiSelectFilter'
+import { PokemonCard } from '../components/PokemonCard/PokemonCard'
+import { Constants } from '../lib/constants'
+import { fetchPokemonShortDataList } from '../lib/fetchPokemonShortDataList'
+import { PokemonShortData } from '../lib/types/PokemonShortData'
+import { PokemonShortDataList } from '../lib/types/PokemonShortDataList'
 
 const StyledInfiniteScroll = styled(InfiniteScroll)``
 
-const pokedex = new Pokedex()
-const POKEMONS_PER_PAGE = 20
-
-type PokemonComponentProps = { pokemon?: PokemonShortData } & React.ComponentPropsWithRef<'div'>
-
-const PokemonCard: React.FC<PokemonComponentProps> = ({ pokemon, ...restProps }) => {
-  if (!pokemon) {
-    return (
-      <Card
-        sx={{ display: 'flex', justifyContent: 'space-between', padding: 4 }}
-        elevation={2}
-        {...restProps}
-      >
-        <Typography variant='h3' fontWeight={'500'}>
-          Loading...
-        </Typography>
-      </Card>
-    )
-  }
-
-  return (
-    <Card sx={{ padding: 2 }} elevation={2} {...restProps}>
-      <Box sx={{ display: 'grid', gridTemplateColumns: '1fr auto auto', alignItems: 'center' }}>
-        <Box sx={{ display: 'grid', gap: 1, justifyItems: 'flex-start' }}>
-          <Typography variant='h5' fontWeight={'500'}>
-            {pokemon.name}
-          </Typography>
-          <Box
-            sx={{
-              display: 'grid',
-              gap: 1,
-              gridAutoFlow: 'column',
-              justifyItems: 'flex-start',
-              justifyContent: 'flex-start'
-            }}
-          >
-            {pokemon.types &&
-              pokemon.types.map((type) => (
-                <Chip key={type.type.name} label={type.type.name} color='primary' />
-              ))}
-          </Box>
-        </Box>
-        {pokemon.sprite && (
-          <Image
-            src={pokemon.sprite}
-            width={100}
-            height={'100%'}
-            layout='fixed'
-            alt="Pokemon's sprite"
-          />
-        )}
-      </Box>
-    </Card>
-  )
-}
-
-type PokemonShortData = Pick<Pokemon, 'name' | 'id' | 'types'> & {
-  sprite: string | null
-}
-
-type PokemonShortDataPage = Omit<NamedAPIResourceList, 'results'> & {
-  results: PokemonShortData[]
-}
+export const pokedex = new Pokedex()
 
 interface PageProps {
-  initialPokemonShortDataPage: PokemonShortDataPage
+  initialPokemonShortDataPage: PokemonShortDataList
   pokemonTypeList: { name: string }[]
   pokemonAbilityList: { name: string }[]
 }
@@ -90,39 +39,8 @@ const MapPokemonData = (pokemonData: PokemonShortData): JSX.Element => {
   )
 }
 
-const MapPokemonDataPage = (pokemonDataPage: PokemonShortDataPage): JSX.Element[] => {
+const MapPokemonDataList = (pokemonDataPage: PokemonShortDataList): JSX.Element[] => {
   return pokemonDataPage.results.map(MapPokemonData)
-}
-
-async function fetchPokemonShortDataPage({
-  limit = POKEMONS_PER_PAGE,
-  offset = 0
-}): Promise<PokemonShortDataPage> {
-  const pokemonList = await pokedex.getPokemonsList({
-    limit,
-    offset
-  })
-
-  const pokemonDataList = await Promise.all(
-    pokemonList.results.map(async ({ name }) => {
-      const pokemonOrList = await pokedex.getPokemonByName(name)
-      if (Array.isArray(pokemonOrList)) return pokemonOrList[0]
-      return pokemonOrList
-    })
-  )
-
-  // Filter pokemon data for the preview cards
-  const pokemonShortDataPage: PokemonShortDataPage = {
-    ...pokemonList,
-    results: pokemonDataList.map(({ name, id, types, sprites }) => ({
-      name,
-      id,
-      types,
-      sprite: sprites?.front_default
-    }))
-  }
-
-  return pokemonShortDataPage
 }
 
 const Home: NextPage<PageProps> = ({
@@ -133,9 +51,9 @@ const Home: NextPage<PageProps> = ({
   const { data, isLoading, isError, error, fetchNextPage, hasNextPage } = useInfiniteQuery(
     'infinite-get-all-pokemons',
     async ({ pageParam = 0 }) =>
-      fetchPokemonShortDataPage({
-        limit: POKEMONS_PER_PAGE,
-        offset: pageParam * POKEMONS_PER_PAGE
+      fetchPokemonShortDataList({
+        limit: Constants.POKEMONS_PER_PAGE,
+        offset: pageParam * Constants.POKEMONS_PER_PAGE
       }),
     {
       initialData: {
@@ -150,6 +68,16 @@ const Home: NextPage<PageProps> = ({
     }
   )
 
+  const [typesFilter, setTypesFilter] = React.useState<string[]>([])
+
+  const handleTypesSelectChange = (event: SelectChangeEvent<typeof typesFilter>) => {
+    const value = event.target.value
+    setTypesFilter(
+      // On autofill we get a stringified value.
+      typeof value === 'string' ? value.split(',') : value
+    )
+  }
+
   if (isLoading) {
     return <Typography>Loading...</Typography>
   }
@@ -159,26 +87,37 @@ const Home: NextPage<PageProps> = ({
   }
 
   return (
-    <Container sx={{ paddingTop: 4 }}>
-      <Box sx={{ display: 'flex', flexWrap: 'wrap', padding: '1 0' }}>
-        {pokemonTypeList.map((type) => (
-          <Chip label={type.name} clickable key={type.name} />
-        ))}
+    <Container sx={{ display: 'flex', flexDirection: 'column', paddingTop: 4 }}>
+      <Box sx={{ display: 'flex', flexWrap: 'wrap', paddingY: 2, position: 'sticky', top: '16px' }}>
+        <MultiSelectFilter<typeof typesFilter>
+          label='Types'
+          selectProps={{
+            value: typesFilter,
+            onChange: handleTypesSelectChange,
+            renderValue: (selected) => selected.join(', ')
+          }}
+        >
+          {pokemonTypeList.map((type) => (
+            <MenuItem key={type.name} value={type.name}>
+              {/* Checked if type is in array of type filters */}
+              <Checkbox checked={typesFilter.indexOf(type.name) > -1} />
+              <ListItemText primary={type.name} />
+            </MenuItem>
+          ))}
+        </MultiSelectFilter>
       </Box>
       <StyledInfiniteScroll
-        dataLength={(data?.pages.length || 0) * POKEMONS_PER_PAGE}
+        dataLength={(data?.pages.length || 0) * Constants.POKEMONS_PER_PAGE}
         next={fetchNextPage}
         hasMore={!!hasNextPage}
         loader={<Typography variant='h4'>Loading...</Typography>}
-        height={800}
         sx={{
           width: '100%',
-          height: '100vh',
-          padding: 2
+          paddingX: 2
         }}
       >
         <Grid container py={4} columns={{ xs: 1, sm: 3 }} spacing={1}>
-          {data?.pages.map(MapPokemonDataPage)}
+          {data?.pages.map(MapPokemonDataList)}
         </Grid>
       </StyledInfiniteScroll>
     </Container>
@@ -186,8 +125,8 @@ const Home: NextPage<PageProps> = ({
 }
 
 export const getStaticProps: GetStaticProps<PageProps> = async () => {
-  const initialPokemonShortDataPage: PokemonShortDataPage = await fetchPokemonShortDataPage({
-    limit: POKEMONS_PER_PAGE
+  const initialPokemonShortDataPage: PokemonShortDataList = await fetchPokemonShortDataList({
+    limit: Constants.POKEMONS_PER_PAGE
   })
 
   const pokemonTypeList = (await pokedex.getTypesList()).results.map((resource) => ({

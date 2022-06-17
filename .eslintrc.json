@@ -3,11 +3,14 @@
   "globals": {
     "React": "readonly"
   },
+  "plugins": ["@typescript-eslint/eslint-plugin"],
   "overrides": [
     {
       "files": ["*.ts", "*.tsx"],
       "rules": {
-        "no-undef": "off"
+        "no-undef": "off",
+        "no-unused-vars": "off",
+        "@typescript-eslint/no-unused-vars": ["error"]
       }
     }
   ]
