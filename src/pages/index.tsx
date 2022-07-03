@@ -15,23 +15,20 @@ import * as React from 'react'
 import InfiniteScroll from 'react-infinite-scroll-component'
 import { useInfiniteQuery } from 'react-query'
 import { MultiSelectFilter } from 'src/components/MultiSelectFilter/MultiSelectFilter'
+import { PokeApiGraphQLClient } from 'src/lib/api/pokeapi-graphql/Client'
+import { PokemonPreview } from 'src/lib/domain/entities/PokemonPreview'
+import { ResourcePage } from 'src/lib/domain/entities/ResourcePage'
 import { PokemonCard } from '../components/PokemonCard/PokemonCard'
-import { Constants } from '../lib/constants'
-import { fetchPokemonShortDataList } from '../lib/fetchPokemonShortDataList'
-import { PokemonShortData } from '../lib/types/PokemonShortData'
-import { PokemonShortDataList } from '../lib/types/PokemonShortDataList'
 
 const StyledInfiniteScroll = styled(InfiniteScroll)``
 
 export const pokedex = new Pokedex()
+const PokeApiClient = new PokeApiGraphQLClient(
+  process.env.POKEAPI_ENDPOINT_URL || 'https://beta.pokeapi.co/graphql/v1beta'
+)
+const POKEAPI_POKEMONS_PER_PAGE = parseInt(process.env.POKEAPI_POKEMONS_PER_PAGE || '24')
 
-interface PageProps {
-  initialPokemonShortDataPage: PokemonShortDataList
-  pokemonTypeList: { name: string }[]
-  pokemonAbilityList: { name: string }[]
-}
-
-const MapPokemonData = (pokemonData: PokemonShortData): JSX.Element => {
+const MapPokemonData = (pokemonData: PokemonPreview): JSX.Element => {
   return (
     <Grid item xs={1} sm={1} textAlign='center' key={pokemonData?.name}>
       <PokemonCard pokemon={pokemonData} />
@@ -39,36 +36,54 @@ const MapPokemonData = (pokemonData: PokemonShortData): JSX.Element => {
   )
 }
 
-const MapPokemonDataList = (pokemonDataPage: PokemonShortDataList): JSX.Element[] => {
+const MapPokemonDataList = (pokemonDataPage: ResourcePage<PokemonPreview>): JSX.Element[] => {
   return pokemonDataPage.results.map(MapPokemonData)
 }
 
+async function fetchPokemonPreviews({
+  pageParam = 0,
+  queryKey
+}: {
+  pageParam?: any
+  queryKey: (string | string[])[]
+}) {
+  return PokeApiClient.listPokemonPreviews({
+    limit: POKEAPI_POKEMONS_PER_PAGE,
+    offset: pageParam * POKEAPI_POKEMONS_PER_PAGE,
+    filters: {
+      types: queryKey[1] as string[]
+    }
+  })
+}
+
+interface PageProps {
+  initialPokemonPreviewsList: ResourcePage<PokemonPreview>
+  pokemonTypeList: { name: string }[]
+  pokemonAbilityList: { name: string }[]
+}
+
 const Home: NextPage<PageProps> = ({
-  initialPokemonShortDataPage: initialPokemonDataPage,
+  initialPokemonPreviewsList,
   pokemonTypeList
   // pokemonAbilityList
 }) => {
+  const scrollableDivRef = React.createRef<HTMLDivElement>()
+  const [typesFilter, setTypesFilter] = React.useState<string[]>([])
   const { data, isLoading, isError, error, fetchNextPage, hasNextPage } = useInfiniteQuery(
-    'infinite-get-all-pokemons',
-    async ({ pageParam = 0 }) =>
-      fetchPokemonShortDataList({
-        limit: Constants.POKEMONS_PER_PAGE,
-        offset: pageParam * Constants.POKEMONS_PER_PAGE
-      }),
+    ['infinite-get-all-pokemons', typesFilter],
+    fetchPokemonPreviews,
     {
-      initialData: {
-        pages: [initialPokemonDataPage],
+      placeholderData: {
+        pages: [initialPokemonPreviewsList],
         pageParams: [0]
       },
       getNextPageParam: (lastPage, pages) => {
-        if (lastPage.next) {
-          return pages.length + 1
+        if (lastPage.hasNextPage) {
+          return pages.length
         }
       }
     }
   )
-
-  const [typesFilter, setTypesFilter] = React.useState<string[]>([])
 
   const handleTypesSelectChange = (event: SelectChangeEvent<typeof typesFilter>) => {
     const value = event.target.value
@@ -76,6 +91,11 @@ const Home: NextPage<PageProps> = ({
       // On autofill we get a stringified value.
       typeof value === 'string' ? value.split(',') : value
     )
+
+    scrollableDivRef.current?.scrollTo({
+      top: 0,
+      behavior: 'smooth'
+    })
   }
 
   if (isLoading) {
@@ -87,7 +107,7 @@ const Home: NextPage<PageProps> = ({
   }
 
   return (
-    <Container sx={{ display: 'flex', flexDirection: 'column', paddingTop: 4 }}>
+    <Container sx={{ height: '100vh', display: 'flex', flexDirection: 'column', paddingTop: 4 }}>
       <Box sx={{ display: 'flex', flexWrap: 'wrap', paddingY: 2, position: 'sticky', top: '16px' }}>
         <MultiSelectFilter<typeof typesFilter>
           label='Types'
@@ -106,27 +126,36 @@ const Home: NextPage<PageProps> = ({
           ))}
         </MultiSelectFilter>
       </Box>
-      <StyledInfiniteScroll
-        dataLength={(data?.pages.length || 0) * Constants.POKEMONS_PER_PAGE}
-        next={fetchNextPage}
-        hasMore={!!hasNextPage}
-        loader={<Typography variant='h4'>Loading...</Typography>}
-        sx={{
-          width: '100%',
-          paddingX: 2
-        }}
+      <Box
+        ref={scrollableDivRef}
+        id='scrollableContainer'
+        sx={{ display: 'flex', width: '100%', height: '100%', overflowY: 'scroll' }}
       >
-        <Grid container py={4} columns={{ xs: 1, sm: 3 }} spacing={1}>
-          {data?.pages.map(MapPokemonDataList)}
-        </Grid>
-      </StyledInfiniteScroll>
+        <StyledInfiniteScroll
+          scrollableTarget='scrollableContainer'
+          dataLength={(data?.pages.length || 0) * POKEAPI_POKEMONS_PER_PAGE}
+          next={fetchNextPage}
+          hasMore={!!hasNextPage}
+          loader={<Typography variant='h4'>Loading...</Typography>}
+          sx={{
+            width: '100%',
+            minHeight: '100vh',
+            paddingX: 2
+          }}
+        >
+          <Grid container py={4} columns={{ xs: 1, sm: 3 }} spacing={1}>
+            {data?.pages.map(MapPokemonDataList)}
+          </Grid>
+        </StyledInfiniteScroll>
+      </Box>
     </Container>
   )
 }
 
 export const getStaticProps: GetStaticProps<PageProps> = async () => {
-  const initialPokemonShortDataPage: PokemonShortDataList = await fetchPokemonShortDataList({
-    limit: Constants.POKEMONS_PER_PAGE
+  const initialPokemonPreviewsList = await PokeApiClient.listPokemonPreviews({
+    limit: POKEAPI_POKEMONS_PER_PAGE,
+    offset: 0
   })
 
   const pokemonTypeList = (await pokedex.getTypesList()).results.map((resource) => ({
@@ -139,7 +168,7 @@ export const getStaticProps: GetStaticProps<PageProps> = async () => {
 
   return {
     props: {
-      initialPokemonShortDataPage: initialPokemonShortDataPage,
+      initialPokemonPreviewsList: initialPokemonPreviewsList,
       pokemonTypeList: pokemonTypeList,
       pokemonAbilityList: pokemonAbilityList
     }

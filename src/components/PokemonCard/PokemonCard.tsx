@@ -2,9 +2,9 @@ import { Box, Card, Chip } from '@mui/material'
 import Typography from '@mui/material/Typography'
 import Image from 'next/image'
 import * as React from 'react'
-import { PokemonShortData } from '../../lib/types/PokemonShortData'
+import { PokemonPreview } from '../../api/types/PokemonPreview'
 
-type PokemonCardProps = { pokemon?: PokemonShortData } & React.ComponentPropsWithRef<'div'>
+type PokemonCardProps = { pokemon?: PokemonPreview } & React.ComponentPropsWithRef<'div'>
 
 export const PokemonCard: React.FC<PokemonCardProps> = ({ pokemon, ...restProps }) => {
   if (!pokemon) {
@@ -39,7 +39,7 @@ export const PokemonCard: React.FC<PokemonCardProps> = ({ pokemon, ...restProps 
           >
             {pokemon.types &&
               pokemon.types.map((type) => (
-                <Chip key={type.type.name} label={type.type.name} color='primary' />
+                <Chip key={type.name} label={type.name} color='primary' />
               ))}
           </Box>
         </Box>
