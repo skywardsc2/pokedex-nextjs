@@ -1,4 +1,4 @@
-import { PokemonType } from 'src/lib/domain/entities/PokemonType'
+import { PokemonType } from '@/lib/domain/entities/PokemonType'
 
 export class PokemonTypeAdapter {
   static map(type: any): PokemonType {

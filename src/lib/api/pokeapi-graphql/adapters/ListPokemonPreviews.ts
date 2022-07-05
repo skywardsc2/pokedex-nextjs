@@ -1,5 +1,5 @@
-import { PokemonPreview } from 'src/lib/domain/entities/PokemonPreview'
-import { ResourcePage } from 'src/lib/domain/entities/ResourcePage'
+import { PokemonPreview } from '@/lib/domain/entities/PokemonPreview'
+import { ResourcePage } from '@/lib/domain/entities/ResourcePage'
 import { PokemonPreviewAdapter } from './PokemonPreview'
 
 export class ListPokemonPreviewsAdapter {

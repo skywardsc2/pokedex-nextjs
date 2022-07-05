@@ -1,4 +1,4 @@
-import { PokemonPreview } from 'src/lib/domain/entities/PokemonPreview'
+import { PokemonPreview } from '@/lib/domain/entities/PokemonPreview'
 import { PokemonTypeAdapter } from './PokemonType'
 
 export class PokemonPreviewAdapter {

@@ -1,8 +1,8 @@
+import { PokemonPreview } from '@/lib/domain/entities/PokemonPreview'
 import { Box, Card, Chip } from '@mui/material'
 import Typography from '@mui/material/Typography'
 import Image from 'next/image'
 import * as React from 'react'
-import { PokemonPreview } from '../../api/types/PokemonPreview'
 
 type PokemonCardProps = { pokemon?: PokemonPreview } & React.ComponentPropsWithRef<'div'>
 

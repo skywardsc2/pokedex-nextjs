@@ -1,14 +1,12 @@
+import { PokemonPreview } from '@/lib/domain/entities/PokemonPreview'
+import { ResourcePage } from '@/lib/domain/entities/ResourcePage'
+import { ListPokemonPreviews } from '@/lib/domain/use-cases/ListPokemonPreviews'
 import axios from 'axios'
-import { PokemonPreview } from 'src/lib/domain/entities/PokemonPreview'
-import { ResourcePage } from 'src/lib/domain/entities/ResourcePage'
-import { ListPokemonPreviews } from 'src/lib/domain/use-cases/ListPokemonPreviews'
 import { ListPokemonPreviewsAdapter } from './adapters/ListPokemonPreviews'
 import { BuildListPokemonPreviewsQuery } from './queries/ListPokemonPreviews'
 
 export class PokeApiGraphQLClient implements ListPokemonPreviews {
-  constructor(private readonly url: string) {
-    this.url = 'https://beta.pokeapi.co/graphql/v1beta'
-  }
+  constructor(private readonly url: string = 'https://beta.pokeapi.co/graphql/v1beta') {}
 
   async listPokemonPreviews({
     limit,
