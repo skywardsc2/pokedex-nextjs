@@ -6,7 +6,7 @@ import Head from 'next/head'
 import Script from 'next/script'
 import { QueryClient, QueryClientProvider } from 'react-query'
 import { ReactQueryDevtools } from 'react-query/devtools'
-import theme from '../themes/theme'
+import theme from '../ui/themes/theme'
 import createEmotionCache from '../utils/createEmotionCache'
 
 // Client-side cache, shared for the whole session of the user in the browser.

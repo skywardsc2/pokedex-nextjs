@@ -1,4 +1,4 @@
-import { PokemonPreview } from '@/lib/domain/entities/PokemonPreview'
+import { PokemonPreview } from '@/domain/entities/PokemonPreview'
 import { Box, Card, Chip } from '@mui/material'
 import Typography from '@mui/material/Typography'
 import Image from 'next/image'

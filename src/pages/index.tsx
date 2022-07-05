@@ -1,7 +1,7 @@
-import { MultiSelectFilter } from '@/components/MultiSelectFilter/MultiSelectFilter'
+import { PokemonPreview } from '@/domain/entities/PokemonPreview'
+import { ResourcePage } from '@/domain/entities/ResourcePage'
 import { PokeApiGraphQLClient } from '@/lib/api/pokeapi-graphql/Client'
-import { PokemonPreview } from '@/lib/domain/entities/PokemonPreview'
-import { ResourcePage } from '@/lib/domain/entities/ResourcePage'
+import { MultiSelectFilter } from '@/ui/components/MultiSelectFilter/MultiSelectFilter'
 import {
   Box,
   Checkbox,
@@ -18,7 +18,7 @@ import Pokedex from 'pokedex-promise-v2'
 import * as React from 'react'
 import InfiniteScroll from 'react-infinite-scroll-component'
 import { useInfiniteQuery } from 'react-query'
-import { PokemonCard } from '../components/PokemonCard/PokemonCard'
+import { PokemonCard } from '../ui/components/PokemonCard/PokemonCard'
 
 const StyledInfiniteScroll = styled(InfiniteScroll)``
 
