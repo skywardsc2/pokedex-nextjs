@@ -1,7 +1,11 @@
+import * as React from 'react'
+
 import { PokemonPreview } from '@/domain/entities/PokemonPreview'
 import { ResourcePage } from '@/domain/entities/ResourcePage'
 import { PokeApiGraphQLClient } from '@/lib/api/pokeapi-graphql/Client'
+
 import { MultiSelectFilter } from '@/ui/components/MultiSelectFilter/MultiSelectFilter'
+import { PokemonCard } from '@/ui/components/PokemonCard/PokemonCard'
 import {
   Box,
   Checkbox,
@@ -13,22 +17,19 @@ import {
 } from '@mui/material'
 import Container from '@mui/material/Container'
 import Typography from '@mui/material/Typography'
+
 import type { GetStaticProps, NextPage } from 'next'
-import Pokedex from 'pokedex-promise-v2'
-import * as React from 'react'
 import InfiniteScroll from 'react-infinite-scroll-component'
 import { useInfiniteQuery } from 'react-query'
-import { PokemonCard } from '../ui/components/PokemonCard/PokemonCard'
 
 const StyledInfiniteScroll = styled(InfiniteScroll)``
 
-export const pokedex = new Pokedex()
+const POKEAPI_POKEMONS_PER_PAGE = parseInt(process.env.POKEAPI_POKEMONS_PER_PAGE || '24')
 const PokeApiClient = new PokeApiGraphQLClient(
   process.env.POKEAPI_ENDPOINT_URL || 'https://beta.pokeapi.co/graphql/v1beta'
 )
-const POKEAPI_POKEMONS_PER_PAGE = parseInt(process.env.POKEAPI_POKEMONS_PER_PAGE || '24')
 
-const MapPokemonData = (pokemonData: PokemonPreview): JSX.Element => {
+function MapPokemonData(pokemonData: PokemonPreview): JSX.Element {
   return (
     <Grid item xs={1} sm={1} textAlign='center' key={pokemonData?.name}>
       <PokemonCard pokemon={pokemonData} />
@@ -36,7 +37,7 @@ const MapPokemonData = (pokemonData: PokemonPreview): JSX.Element => {
   )
 }
 
-const MapPokemonDataList = (pokemonDataPage: ResourcePage<PokemonPreview>): JSX.Element[] => {
+function MapPokemonDataList(pokemonDataPage: ResourcePage<PokemonPreview>): JSX.Element[] {
   return pokemonDataPage.results.map(MapPokemonData)
 }
 
@@ -56,17 +57,13 @@ async function fetchPokemonPreviews({
   })
 }
 
-interface PageProps {
-  initialPokemonPreviewsList: ResourcePage<PokemonPreview>
-  pokemonTypeList: { name: string }[]
-  pokemonAbilityList: { name: string }[]
+type PageProps = {
+  initialPokemonPreviews: ResourcePage<PokemonPreview>
+  pokemonTypes: { name: string }[]
+  pokemonAbilities: { name: string }[]
 }
 
-const Home: NextPage<PageProps> = ({
-  initialPokemonPreviewsList,
-  pokemonTypeList
-  // pokemonAbilityList
-}) => {
+const Home: NextPage<PageProps> = ({ initialPokemonPreviews, pokemonTypes }) => {
   const scrollableDivRef = React.createRef<HTMLDivElement>()
   const [typesFilter, setTypesFilter] = React.useState<string[]>([])
   const { data, isLoading, isError, error, fetchNextPage, hasNextPage } = useInfiniteQuery(
@@ -74,7 +71,7 @@ const Home: NextPage<PageProps> = ({
     fetchPokemonPreviews,
     {
       placeholderData: {
-        pages: [initialPokemonPreviewsList],
+        pages: [initialPokemonPreviews],
         pageParams: [0]
       },
       getNextPageParam: (lastPage, pages) => {
@@ -117,7 +114,7 @@ const Home: NextPage<PageProps> = ({
             renderValue: (selected) => selected.join(', ')
           }}
         >
-          {pokemonTypeList.map((type) => (
+          {pokemonTypes.map((type) => (
             <MenuItem key={type.name} value={type.name}>
               {/* Checked if type is in array of type filters */}
               <Checkbox checked={typesFilter.indexOf(type.name) > -1} />
@@ -153,24 +150,18 @@ const Home: NextPage<PageProps> = ({
 }
 
 export const getStaticProps: GetStaticProps<PageProps> = async () => {
-  const initialPokemonPreviewsList = await PokeApiClient.listPokemonPreviews({
+  const initialPokemonPreviews = await PokeApiClient.listPokemonPreviews({
     limit: POKEAPI_POKEMONS_PER_PAGE,
     offset: 0
   })
-
-  const pokemonTypeList = (await pokedex.getTypesList()).results.map((resource) => ({
-    name: resource.name
-  }))
-
-  const pokemonAbilityList = (await pokedex.getAbilitiesList()).results.map((resource) => ({
-    name: resource.name
-  }))
+  const pokemonTypes = await PokeApiClient.listPokemonTypes()
+  const pokemonAbilities = await PokeApiClient.listPokemonAbilities()
 
   return {
     props: {
-      initialPokemonPreviewsList: initialPokemonPreviewsList,
-      pokemonTypeList: pokemonTypeList,
-      pokemonAbilityList: pokemonAbilityList
+      initialPokemonPreviews,
+      pokemonTypes,
+      pokemonAbilities
     }
   }
 }
