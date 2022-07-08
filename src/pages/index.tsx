@@ -20,26 +20,12 @@ import Typography from '@mui/material/Typography'
 
 import type { GetStaticProps, NextPage } from 'next'
 import InfiniteScroll from 'react-infinite-scroll-component'
-import { useInfiniteQuery } from 'react-query'
+import { InfiniteData, useInfiniteQuery } from 'react-query'
 
 const StyledInfiniteScroll = styled(InfiniteScroll)``
 
 const POKEAPI_POKEMONS_PER_PAGE = parseInt(process.env.POKEAPI_POKEMONS_PER_PAGE || '24')
-const PokeApiClient = new PokeApiGraphQLClient(
-  process.env.POKEAPI_ENDPOINT_URL || 'https://beta.pokeapi.co/graphql/v1beta'
-)
-
-function MapPokemonData(pokemonData: PokemonPreview): JSX.Element {
-  return (
-    <Grid item xs={1} sm={1} textAlign='center' key={pokemonData?.name}>
-      <PokemonCard pokemon={pokemonData} />
-    </Grid>
-  )
-}
-
-function MapPokemonDataList(pokemonDataPage: ResourcePage<PokemonPreview>): JSX.Element[] {
-  return pokemonDataPage.results.map(MapPokemonData)
-}
+const PokeApiClient = new PokeApiGraphQLClient()
 
 async function fetchPokemonPreviews({
   pageParam = 0,
@@ -48,11 +34,15 @@ async function fetchPokemonPreviews({
   pageParam?: any
   queryKey: (string | string[])[]
 }) {
+  let types = queryKey[1]
+
+  if (!Array.isArray(types)) types = [types]
+
   return PokeApiClient.listPokemonPreviews({
     limit: POKEAPI_POKEMONS_PER_PAGE,
     offset: pageParam * POKEAPI_POKEMONS_PER_PAGE,
     filters: {
-      types: queryKey[1] as string[]
+      types: types
     }
   })
 }
@@ -65,34 +55,28 @@ type PageProps = {
 
 const Home: NextPage<PageProps> = ({ initialPokemonPreviews, pokemonTypes }) => {
   const scrollableDivRef = React.createRef<HTMLDivElement>()
-  const [typesFilter, setTypesFilter] = React.useState<string[]>([])
-  const { data, isLoading, isError, error, fetchNextPage, hasNextPage } = useInfiniteQuery(
-    ['infinite-get-all-pokemons', typesFilter],
-    fetchPokemonPreviews,
-    {
-      placeholderData: {
-        pages: [initialPokemonPreviews],
-        pageParams: [0]
-      },
-      getNextPageParam: (lastPage, pages) => {
-        if (lastPage.hasNextPage) {
-          return pages.length
-        }
-      }
-    }
-  )
+  const [pokemonTypesFilter, setPokemonTypesFilter] = React.useState<string[]>([])
 
-  const handleTypesSelectChange = (event: SelectChangeEvent<typeof typesFilter>) => {
+  const {
+    data: pokemonPreviewsQuery,
+    isLoading,
+    isError,
+    error,
+    fetchNextPage,
+    hasNextPage
+  } = useInfiniteQuery(['infinite-get-all-pokemons', pokemonTypesFilter], fetchPokemonPreviews, {
+    placeholderData: {
+      pages: [initialPokemonPreviews],
+      pageParams: [0]
+    },
+    getNextPageParam: (lastPage, pages) => lastPage.hasNextPage && pages.length
+  })
+
+  const handlePokemonTypesSelectChange = (event: SelectChangeEvent<typeof pokemonTypesFilter>) => {
     const value = event.target.value
-    setTypesFilter(
-      // On autofill we get a stringified value.
-      typeof value === 'string' ? value.split(',') : value
-    )
+    setPokemonTypesFilter(getMultiSelectValueAsArray(value))
 
-    scrollableDivRef.current?.scrollTo({
-      top: 0,
-      behavior: 'smooth'
-    })
+    scrollDivToTop(scrollableDivRef)
   }
 
   if (isLoading) {
@@ -106,18 +90,17 @@ const Home: NextPage<PageProps> = ({ initialPokemonPreviews, pokemonTypes }) => 
   return (
     <Container sx={{ height: '100vh', display: 'flex', flexDirection: 'column', paddingTop: 4 }}>
       <Box sx={{ display: 'flex', flexWrap: 'wrap', paddingY: 2, position: 'sticky', top: '16px' }}>
-        <MultiSelectFilter<typeof typesFilter>
+        <MultiSelectFilter<typeof pokemonTypesFilter>
           label='Types'
           selectProps={{
-            value: typesFilter,
-            onChange: handleTypesSelectChange,
+            value: pokemonTypesFilter,
+            onChange: handlePokemonTypesSelectChange,
             renderValue: (selected) => selected.join(', ')
           }}
         >
           {pokemonTypes.map((type) => (
             <MenuItem key={type.name} value={type.name}>
-              {/* Checked if type is in array of type filters */}
-              <Checkbox checked={typesFilter.indexOf(type.name) > -1} />
+              <Checkbox checked={filterHasType(pokemonTypesFilter, type)} />
               <ListItemText primary={type.name} />
             </MenuItem>
           ))}
@@ -130,7 +113,7 @@ const Home: NextPage<PageProps> = ({ initialPokemonPreviews, pokemonTypes }) => 
       >
         <StyledInfiniteScroll
           scrollableTarget='scrollableContainer'
-          dataLength={(data?.pages.length || 0) * POKEAPI_POKEMONS_PER_PAGE}
+          dataLength={getCurrentPokemonCount(pokemonPreviewsQuery)}
           next={fetchNextPage}
           hasMore={!!hasNextPage}
           loader={<Typography variant='h4'>Loading...</Typography>}
@@ -141,7 +124,7 @@ const Home: NextPage<PageProps> = ({ initialPokemonPreviews, pokemonTypes }) => 
           }}
         >
           <Grid container py={4} columns={{ xs: 1, sm: 3 }} spacing={1}>
-            {data?.pages.map(MapPokemonDataList)}
+            {pokemonPreviewsQuery?.pages.map(MapPokemonDataList)}
           </Grid>
         </StyledInfiniteScroll>
       </Box>
@@ -167,3 +150,36 @@ export const getStaticProps: GetStaticProps<PageProps> = async () => {
 }
 
 export default Home
+
+function MapPokemonDataList(pokemonDataPage: ResourcePage<PokemonPreview>): JSX.Element[] {
+  return pokemonDataPage.results.map(MapPokemonData)
+}
+
+function MapPokemonData(pokemonData: PokemonPreview): JSX.Element {
+  return (
+    <Grid item xs={1} sm={1} textAlign='center' key={pokemonData?.name}>
+      <PokemonCard pokemon={pokemonData} />
+    </Grid>
+  )
+}
+
+function getCurrentPokemonCount(
+  pokemonPreviewsQuery?: InfiniteData<ResourcePage<PokemonPreview>>
+): number {
+  return (pokemonPreviewsQuery?.pages.length || 0) * POKEAPI_POKEMONS_PER_PAGE
+}
+
+function filterHasType(pokemonTypesFilter: string[], type: { name: string }): boolean | undefined {
+  return pokemonTypesFilter.indexOf(type.name) > -1
+}
+
+function getMultiSelectValueAsArray(value: string | string[]): string[] {
+  return typeof value === 'string' ? value.split(',') : value
+}
+
+function scrollDivToTop(scrollableDivRef: React.RefObject<HTMLDivElement>) {
+  scrollableDivRef.current?.scrollTo({
+    top: 0,
+    behavior: 'smooth'
+  })
+}
