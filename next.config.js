@@ -6,7 +6,7 @@ const nextConfig = {
   },
   env: {
     POKEAPI_ENDPOINT_URL: 'https://beta.pokeapi.co/graphql/v1beta',
-    POKEAPI_POKEMONS_PER_PAGE: 24
+    POKEAPI_POKEMONS_PER_PAGE: 32
   }
 }
 
