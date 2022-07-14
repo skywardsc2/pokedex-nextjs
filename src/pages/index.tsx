@@ -9,16 +9,17 @@ import {
   AppBar,
   Badge,
   Box,
-  Chip,
   Container,
   Divider,
   Drawer,
+  FormControl,
   Grid,
   IconButton,
   List,
   ListItem,
-  ListItemButton,
   ListItemText,
+  MenuItem,
+  Select,
   SelectChangeEvent,
   styled,
   Toolbar
@@ -46,6 +47,8 @@ async function fetchPokemonPreviews({
 
   if (!Array.isArray(types)) types = [types]
 
+  types = types.filter((type) => !!type)
+
   return PokeApiClient.listPokemonPreviews({
     limit: POKEAPI_POKEMONS_PER_PAGE,
     offset: pageParam * POKEAPI_POKEMONS_PER_PAGE,
@@ -61,8 +64,9 @@ type PageProps = {
   pokemonAbilities: { name: string }[]
 }
 
-const Home: NextPage<PageProps> = ({ initialPokemonPreviews }) => {
-  const [pokemonTypesFilter, setPokemonTypesFilter] = React.useState<string[]>(['normal'])
+const Home: NextPage<PageProps> = ({ initialPokemonPreviews, pokemonTypes }) => {
+  const [pokemonFirstTypeFilter, setPokemonFirstTypeFilter] = React.useState('')
+  const [pokemonSecondTypeFilter, setPokemonSecondTypeFilter] = React.useState('')
   const {
     data: pokemonPreviewsQuery,
     isLoading,
@@ -70,43 +74,100 @@ const Home: NextPage<PageProps> = ({ initialPokemonPreviews }) => {
     error,
     fetchNextPage,
     hasNextPage
-  } = useInfiniteQuery(['infinite-get-all-pokemons', pokemonTypesFilter], fetchPokemonPreviews, {
-    placeholderData: {
-      pages: [initialPokemonPreviews],
-      pageParams: [0]
-    },
-    getNextPageParam: (lastPage, pages) => lastPage.hasNextPage && pages.length
-  })
+  } = useInfiniteQuery(
+    ['infinite-get-all-pokemons', [pokemonFirstTypeFilter, pokemonSecondTypeFilter]],
+    fetchPokemonPreviews,
+    {
+      placeholderData: {
+        pages: [initialPokemonPreviews],
+        pageParams: [0]
+      },
+      getNextPageParam: (lastPage, pages) => lastPage.hasNextPage && pages.length
+    }
+  )
 
   const scrollableContainer = {
     ref: React.createRef<HTMLDivElement>(),
     id: 'scrollableContainer'
   }
 
+  const handlePokemonFirstTypeSelectChange = (
+    event: SelectChangeEvent<typeof pokemonFirstTypeFilter>
+  ) => {
+    const value = event.target.value
+    setPokemonFirstTypeFilter(value)
+    scrollDivToTop(scrollableContainer.ref)
+  }
+
+  const handlePokemonSecondTypeSelectChange = (
+    event: SelectChangeEvent<typeof pokemonSecondTypeFilter>
+  ) => {
+    const value = event.target.value
+    setPokemonSecondTypeFilter(value)
+    scrollDivToTop(scrollableContainer.ref)
+  }
+
   const [sidebarIsOpenMobile, setSidebarIsOpenMobile] = React.useState(false)
   const handleSidebarToggle = () => setSidebarIsOpenMobile((isOpen) => !isOpen)
   const drawer = (
-    <Box onClick={handleSidebarToggle} sx={{ textAlign: 'center' }}>
-      <Typography variant='h6' sx={{ my: 2 }}>
-        MUI
+    <Box sx={{ textAlign: 'center' }}>
+      <Typography variant='h5' sx={{ my: 2 }}>
+        Filters
       </Typography>
-      <Divider />
-      <List>
-        <ListItem key={'types'} disablePadding>
-          <ListItemButton sx={{ textAlign: 'center' }}>
-            <ListItemText primary={'Item'} />
-          </ListItemButton>
-        </ListItem>
-      </List>
+      <Divider variant='middle' />
+      <Box sx={{ width: '100%', display: 'flex', justifyContent: 'center' }}>
+        <List sx={{ width: '100%', maxWidth: '500px' }}>
+          <ListItem key={'types'}>
+            <ListItemText primary='Type' primaryTypographyProps={{ variant: 'h6' }} />
+            <FormControl sx={{ display: 'inline-grid', gap: 2, gridAutoFlow: 'column' }}>
+              <Select
+                id='type-select-1'
+                value={pokemonFirstTypeFilter}
+                onChange={handlePokemonFirstTypeSelectChange}
+                renderValue={(selected) => selected}
+                MenuProps={{
+                  PaperProps: {
+                    style: {
+                      maxHeight: getMenuMaxHeight(6.5, 48, 8),
+                      width: 250
+                    }
+                  }
+                }}
+                sx={{ width: 100 }}
+              >
+                {pokemonTypes.map((type) => (
+                  <MenuItem key={type.name} value={type.name}>
+                    <ListItemText primary={type.name} />
+                  </MenuItem>
+                ))}
+              </Select>
+              <Select
+                id='type-select-2'
+                value={pokemonSecondTypeFilter}
+                onChange={handlePokemonSecondTypeSelectChange}
+                renderValue={(selected) => selected}
+                MenuProps={{
+                  PaperProps: {
+                    style: {
+                      maxHeight: getMenuMaxHeight(6.5, 48, 8),
+                      width: 250
+                    }
+                  }
+                }}
+                sx={{ width: 100 }}
+              >
+                {pokemonTypes.map((type) => (
+                  <MenuItem key={type.name} value={type.name}>
+                    <ListItemText primary={type.name} />
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </ListItem>
+        </List>
+      </Box>
     </Box>
   )
-
-  const handlePokemonTypesSelectChange = (event: SelectChangeEvent<typeof pokemonTypesFilter>) => {
-    const value = event.target.value
-    setPokemonTypesFilter(getMultiSelectValueAsArray(value))
-
-    scrollDivToTop(scrollableContainer.ref)
-  }
 
   if (isLoading) {
     return <Typography>Loading...</Typography>
@@ -118,28 +179,10 @@ const Home: NextPage<PageProps> = ({ initialPokemonPreviews }) => {
 
   return (
     <Box sx={{ height: '100vh', display: 'grid' }}>
-      {/* <Box sx={{ display: 'flex', flexWrap: 'wrap', paddingY: 2, position: 'sticky', top: '16px' }}>
-        <MultiSelectFilter<typeof pokemonTypesFilter>
-          label='Types'
-          selectProps={{
-            value: pokemonTypesFilter,
-            onChange: handlePokemonTypesSelectChange,
-            renderValue: (selected) => selected.join(', ')
-          }}
-        >
-          {pokemonTypes.map((type) => (
-            <MenuItem key={type.name} value={type.name}>
-              <Checkbox checked={filterHasType(pokemonTypesFilter, type)} />
-              <ListItemText primary={type.name} />
-            </MenuItem>
-          ))}
-        </MultiSelectFilter>
-        <IconButton />
-      </Box> */}
       <AppBar component={'header'} position='sticky'>
         <Toolbar>
           <Container>
-            <Box sx={{ display: 'flex', px: { lg: 3 } }}>
+            <Box sx={{ display: 'flex', justifyContent: 'flex-end', px: { lg: 3 } }}>
               <IconButton size='large' color='inherit' edge='start' onClick={handleSidebarToggle}>
                 <Badge badgeContent={1} color='secondary'>
                   <FilterAltRounded />
@@ -151,32 +194,18 @@ const Home: NextPage<PageProps> = ({ initialPokemonPreviews }) => {
       </AppBar>
       <Box component='nav'>
         <Drawer
+          anchor='bottom'
           variant='temporary'
           open={sidebarIsOpenMobile}
           onClose={handleSidebarToggle}
           ModalProps={{
             keepMounted: true
           }}
-          sx={{
-            display: { xs: 'block' },
-            '& .MuiDrawer-paper': { width: '240px' }
-          }}
         >
           {drawer}
         </Drawer>
       </Box>
       <Container sx={{ py: 3 }}>
-        <Box sx={{ display: 'grid', gap: 2 }}>
-          {pokemonTypesFilter && 'Filtering by:'}
-          {pokemonTypesFilter && (
-            <Box sx={{ display: 'flex', alignItems: 'center' }}>
-              Type:{' '}
-              {pokemonTypesFilter.map((type) => (
-                <Chip label={type} sx={{ mx: 1 }} key={type}></Chip>
-              ))}
-            </Box>
-          )}
-        </Box>
         <StyledInfiniteScroll
           dataLength={getCurrentPokemonCount(pokemonPreviewsQuery)}
           next={fetchNextPage}
@@ -214,6 +243,14 @@ export const getStaticProps: GetStaticProps<PageProps> = async () => {
 
 export default Home
 
+function getMenuMaxHeight(
+  visibleItems: number,
+  itemHeight: number,
+  itemPaddingTop: number
+): number {
+  return itemHeight * visibleItems + itemPaddingTop
+}
+
 function MapPokemonDataList(pokemonDataPage: ResourcePage<PokemonPreview>): JSX.Element[] {
   return pokemonDataPage.results.map(MapPokemonData)
 }
@@ -230,14 +267,6 @@ function getCurrentPokemonCount(
   pokemonPreviewsQuery?: InfiniteData<ResourcePage<PokemonPreview>>
 ): number {
   return (pokemonPreviewsQuery?.pages.length || 0) * POKEAPI_POKEMONS_PER_PAGE
-}
-
-function filterHasType(pokemonTypesFilter: string[], type: { name: string }): boolean | undefined {
-  return pokemonTypesFilter.indexOf(type.name) > -1
-}
-
-function getMultiSelectValueAsArray(value: string | string[]): string[] {
-  return typeof value === 'string' ? value.split(',') : value
 }
 
 function scrollDivToTop(scrollableDivRef: React.RefObject<HTMLDivElement>) {
