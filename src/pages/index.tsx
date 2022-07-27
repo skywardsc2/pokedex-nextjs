@@ -26,6 +26,8 @@ import {
 } from '@mui/material'
 import Typography from '@mui/material/Typography'
 
+import { PokemonAbility } from '@/domain/entities/PokemonAbility'
+import { PokemonType } from '@/domain/entities/PokemonType'
 import { FilterAltRounded } from '@mui/icons-material'
 import type { GetStaticProps, NextPage } from 'next'
 import InfiniteScroll from 'react-infinite-scroll-component'
@@ -43,9 +45,7 @@ async function fetchPokemonPreviews({
   pageParam?: any
   queryKey: (string | string[])[]
 }) {
-  let types = queryKey[1]
-
-  if (!Array.isArray(types)) types = [types]
+  let types = queryKey[1] as string[]
 
   types = types.filter((type) => !!type)
 
@@ -53,20 +53,23 @@ async function fetchPokemonPreviews({
     limit: POKEAPI_POKEMONS_PER_PAGE,
     offset: pageParam * POKEAPI_POKEMONS_PER_PAGE,
     filters: {
-      types: types
+      types: {
+        firstSlot: types[0],
+        secondSlot: types[1]
+      }
     }
   })
 }
 
 type PageProps = {
   initialPokemonPreviews: ResourcePage<PokemonPreview>
-  pokemonTypes: { name: string }[]
-  pokemonAbilities: { name: string }[]
+  pokemonTypes: PokemonType[]
+  pokemonAbilities: PokemonAbility[]
 }
 
 const Home: NextPage<PageProps> = ({ initialPokemonPreviews, pokemonTypes }) => {
-  const [pokemonFirstTypeFilter, setPokemonFirstTypeFilter] = React.useState('')
-  const [pokemonSecondTypeFilter, setPokemonSecondTypeFilter] = React.useState('')
+  const [pokemonFirstTypeFilter, setPokemonFirstTypeFilter] = React.useState('any')
+  const [pokemonSecondTypeFilter, setPokemonSecondTypeFilter] = React.useState('any')
   const {
     data: pokemonPreviewsQuery,
     isLoading,
@@ -135,11 +138,14 @@ const Home: NextPage<PageProps> = ({ initialPokemonPreviews, pokemonTypes }) => 
                 }}
                 sx={{ width: 100 }}
               >
-                {pokemonTypes.map((type) => (
-                  <MenuItem key={type.name} value={type.name}>
-                    <ListItemText primary={type.name} />
-                  </MenuItem>
-                ))}
+                {pokemonTypes.map(
+                  (type) =>
+                    type.name != 'none' && (
+                      <MenuItem key={type.name} value={type.name}>
+                        <ListItemText primary={type.name} />
+                      </MenuItem>
+                    )
+                )}
               </Select>
               <Select
                 id='type-select-2'

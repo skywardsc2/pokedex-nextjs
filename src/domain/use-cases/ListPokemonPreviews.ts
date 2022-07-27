@@ -9,6 +9,6 @@ export interface ListPokemonPreviews {
   }: {
     limit?: number
     offset?: number
-    filters?: { types?: string[] }
+    filters?: { types?: { firstSlot: string; secondSlot?: string } }
   }): Promise<ResourcePage<PokemonPreview>>
 }

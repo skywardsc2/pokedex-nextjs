@@ -5,51 +5,57 @@ export function BuildListPokemonPreviewsQuery({
 }: {
   limit?: number
   offset?: number
-  filters?: { types?: string[] }
+  filters?: { types?: { firstSlot: string; secondSlot?: string } }
 }): string {
   let variables = []
-  let filterParams = []
-  let aggregateFilterParams = []
+  let pokemonQueryParameters = []
+  let aggregateQueryParameters = []
 
   if (limit) {
     variables.push('$limit: Int!')
-    filterParams.push('limit: $limit')
+    pokemonQueryParameters.push('limit: $limit')
   }
 
   if (offset) {
     variables.push('$offset: Int!')
-    filterParams.push('offset: $offset')
+    pokemonQueryParameters.push('offset: $offset')
   }
 
   if (filters) {
-    if (filters.types && filters.types.length > 0) {
-      const paramStr =
-        'where: { pokemon_v2_pokemontypes: { pokemon_v2_type: { name: { _in: $types }}}}'
-      variables.push('$types: [String!]!')
-      filterParams.push(paramStr)
-      aggregateFilterParams.push(paramStr)
+    if (filters.types && filters.types.firstSlot != 'any') {
+      let filterParameters =
+        'where: { pokemon_v2_pokemontypes: { pokemon_v2_type: { name: { _eq: $firstType } }, slot: { _eq: 1 } } }'
+      variables.push('$firstType: String')
+
+      if (filters.types.secondSlot && filters.types.secondSlot != 'any') {
+        if (filters.types.secondSlot == 'none') {
+          filterParameters =
+            'where: { _and: [{ pokemon_v2_pokemontypes: { pokemon_v2_type: { name: { _eq: $firstType }}, slot: { _eq: 1 }}}, { _not: { pokemon_v2_pokemontypes: { slot: { _eq: 2 }}}}]}'
+        } else {
+          filterParameters =
+            'where: { _and: [{ pokemon_v2_pokemontypes: { pokemon_v2_type: { name: { _eq: $firstType }}, slot: { _eq: 1 }}}, { pokemon_v2_pokemontypes: { pokemon_v2_type: { name: {_eq: $secondType }}, slot: { _eq: 2 }}}]}'
+          variables.push('$secondType: String')
+        }
+      }
+
+      pokemonQueryParameters.push(filterParameters)
+      aggregateQueryParameters.push(filterParameters)
     }
   }
 
-  filterParams.push('order_by: {id: asc}')
+  pokemonQueryParameters.push('order_by: {id: asc}')
 
-  let variablesString = ''
-  let filterParamsString = ''
-  let aggregateFilterParamsString = ''
+  return BuildQuery(variables, pokemonQueryParameters, aggregateQueryParameters)
+}
 
-  filterParamsString = '(' + filterParams.join(', ') + ')'
-
-  if (variables.length > 0) {
-    variablesString = '(' + variables.join(', ') + ')'
-  }
-
-  if (aggregateFilterParams.length > 0) {
-    aggregateFilterParamsString = '(' + aggregateFilterParams.join(', ') + ')'
-  }
-
+function BuildQuery(
+  variables: any[],
+  pokemonQueryParameters: string[],
+  aggregateQueryParams: any[]
+) {
   const query = `#graphql
-    query ${variablesString} {
-      pokemon_v2_pokemon ${filterParamsString} {
+    query ${formatQueryParameters(variables)} {
+      pokemon_v2_pokemon ${formatQueryParameters(pokemonQueryParameters)} {
         name
         id
         pokemon_v2_pokemontypes {
@@ -61,7 +67,7 @@ export function BuildListPokemonPreviewsQuery({
           sprites
         }
       }
-      pokemon_v2_pokemon_aggregate ${aggregateFilterParamsString} {
+      pokemon_v2_pokemon_aggregate ${formatQueryParameters(aggregateQueryParams)} {
         aggregate {
           count
         }
@@ -69,4 +75,11 @@ export function BuildListPokemonPreviewsQuery({
     }`
 
   return query
+}
+
+function formatQueryParameters(parameters: any[]) {
+  if (parameters.length > 0) {
+    return '(' + parameters.join(', ') + ')'
+  }
+  return ''
 }

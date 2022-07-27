@@ -1,4 +1,25 @@
 export type PokemonType = {
-  name: string
+  name:
+    | 'normal'
+    | 'fire'
+    | 'fighting'
+    | 'water'
+    | 'flying'
+    | 'grass'
+    | 'poison'
+    | 'electric'
+    | 'ground'
+    | 'psychic'
+    | 'rock'
+    | 'ice'
+    | 'bug'
+    | 'dragon'
+    | 'ghost'
+    | 'dark'
+    | 'steel'
+    | 'fairy'
+    | 'unknown'
+    | 'any'
+    | 'none'
   slot: number
 }

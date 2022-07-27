@@ -41,12 +41,22 @@ export class PokeApiGraphQLClient
   }: {
     limit?: number
     offset?: number
-    filters?: { types?: string[] }
+    filters?: { types?: { firstSlot: string; secondSlot?: string } }
   }): Promise<ResourcePage<PokemonPreview>> {
-    const variables: { limit?: number; offset?: number; types?: string[] } = {}
+    const variables: { limit?: number; offset?: number; firstType?: string; secondType?: string } =
+      {}
     if (limit) variables.limit = limit
     if (offset) variables.offset = offset
-    if (filters && filters.types && filters.types.length > 0) variables.types = filters.types
+    if (filters && filters.types) {
+      if (filters.types.firstSlot && filters.types.firstSlot != 'any')
+        variables.firstType = filters.types.firstSlot
+      if (
+        filters.types.secondSlot &&
+        filters.types.secondSlot != 'any' &&
+        filters.types.secondSlot != 'none'
+      )
+        variables.secondType = filters.types.secondSlot
+    }
 
     const query = BuildListPokemonPreviewsQuery({ limit, offset, filters })
 

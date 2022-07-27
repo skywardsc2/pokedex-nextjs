@@ -3,6 +3,13 @@ import { PokemonTypeAdapter } from './PokemonType'
 
 export class ListPokemonTypesAdapter {
   static map(data: any): PokemonType[] {
-    return data.pokemon_v2_pokemontype.map((type: { name: string }) => PokemonTypeAdapter.map(type))
+    const apiTypes = data.pokemon_v2_pokemontype.map((type: { name: string }) =>
+      PokemonTypeAdapter.map(type)
+    )
+
+    apiTypes.push({ name: 'any', slot: 1 })
+    apiTypes.push({ name: 'none', slot: 1 })
+
+    return apiTypes
   }
 }
